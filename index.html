@@ -19,10 +19,14 @@
         #btn-medium { background: #fd7e14; }
         #btn-hard { background: #dc3545; }
         
-        /* Leaderboard Styling Added Back */
+        /* Leaderboard Styling */
         .leaderboard { margin-top: 30px; text-align: left; background: #111; padding: 15px; border-radius: 10px; }
         .leaderboard h3 { margin: 0 0 10px 0; text-align: center; color: var(--accent); }
         .lb-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; align-items: center; }
+
+        /* How to play text (Small Terms & Conditions style) */
+        .how-to-play { margin-top: 20px; font-size: 0.75rem; color: #888; text-align: left; line-height: 1.4; }
+        .how-to-play strong { color: #aaa; }
         
         /* Game UI */
         .number-display { font-size: 5rem; font-weight: bold; margin: 10px 0; height: 100px; display: flex; align-items: center; justify-content: center; }
@@ -64,6 +68,16 @@
         <div class="leaderboard">
             <h3>🏆 Farkalózok Hall of Fame</h3>
             <div id="lb-list">Loading...</div>
+        </div>
+
+        <div class="how-to-play">
+            <strong>How to Play BOLC:</strong> The game counts up sequentially starting from 1. Your goal is to enter the next number in the sequence before the timer runs out. <br><br>
+            <strong>The Catch:</strong> If the upcoming number fits any of the rules below, you must press the <strong>BOLC</strong> button instead of typing the number:<br>
+            • It is a multiple of 3 (e.g., 6, 9, 12)<br>
+            • It is a multiple of 7 (e.g., 14, 21, 28)<br>
+            • It contains the digit 3 (e.g., 13, 23, 31)<br>
+            • It contains the digit 7 (e.g., 17, 27, 70)<br><br>
+            <em>Tip: You can use your physical keyboard to play! Type the numbers normally, and hit the <strong>Spacebar</strong> to trigger BOLC.*</em>
         </div>
     </div>
 
