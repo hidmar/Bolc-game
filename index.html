@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BOLC - The Mental Reflex Game</title>
+    <style>
+        :root { --bg: #1a1a1a; --text: #eee; --accent: #00ff88; --danger: #ff3e3e; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; transition: background-color 0.1s; touch-action: manipulation; }
+        
+        #app-container { text-align: center; border: 2px solid #333; padding: 20px 30px; border-radius: 20px; background: rgba(34, 34, 34, 0.9); box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 500px; width: 90%; backdrop-filter: blur(10px); }
+        
+        h1 { margin-top: 0; font-size: 2.5rem; letter-spacing: 2px; }
+        
+        /* Menu & Leaderboard */
+        #menu-ui input { padding: 12px; font-size: 1.2rem; border-radius: 8px; border: 1px solid #555; background: #333; color: white; text-align: center; width: 80%; margin-bottom: 20px; }
+        .diff-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; color: white; }
+        #btn-easy { background: #28a745; }
+        #btn-medium { background: #fd7e14; }
+        #btn-hard { background: #dc3545; }
+        
+        /* Game UI */
+        .number-display { font-size: 5rem; font-weight: bold; margin: 10px 0; height: 100px; display: flex; align-items: center; justify-content: center; }
+        .highlight { color: var(--danger); text-shadow: 0 0 10px rgba(255,62,62,0.5); }
+        
+        #timer-bar { width: 100%; height: 12px; background: #444; border-radius: 6px; overflow: hidden; margin-bottom: 15px; }
+        #progress { width: 100%; height: 100%; background: var(--accent); transition: width 0.1s linear, background-color 0.3s; }
+        
+        /* Numpad & Controls */
+        #typed-display { font-size: 2rem; min-height: 40px; margin-bottom: 15px; color: var(--accent); font-weight: bold; letter-spacing: 2px;}
+        /* Hidden input to capture physical keyboard without showing mobile keyboard */
+        #num-input { position: absolute; opacity: 0; pointer-events: none; } 
+
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 350px; margin: 0 auto; }
+        .pad-btn { background: #444; color: white; border: none; padding: 15px 0; font-size: 1.5rem; font-weight: bold; border-radius: 8px; cursor: pointer; user-select: none; transition: 0.1s; }
+        .pad-btn:active { transform: scale(0.95); background: #666; }
+        .btn-bolc { background: var(--danger); }
+        .btn-bolc:active { background: #ff6666; }
+        .btn-del { background: #555; font-size: 1.2rem; }
+
+        /* Game Over UI */
+        #game-over-ui { display: none; }
+        .mistake-box { background: rgba(255,62,62,0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <div id="menu-ui">
+        <h1>BOLC</h1>
+        <input type="text" id="username" placeholder="Enter your Legend Name..." maxlength="15">
+        <button class="diff-btn" id="btn-easy" onclick="startGame('Easy')">EASY (15s | Visible)</button>
+        <button class="diff-btn" id="btn-medium" onclick="startGame('Medium')">MEDIUM (10s | Hidden)</button>
+        <button class="diff-btn" id="btn-hard" onclick="startGame('Hard')">HARD (5s | Hidden | Heat)</button>
+    </div>
+
+    <div id="game-ui" style="display:none;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; color: #aaa;">
+            <span id="diff-label">Mode</span>
+            <span>Score: <span id="score" style="color: white; font-size: 1.2rem;">0</span></span>
+        </div>
+        
+        <div class="number-display" id="current-target">?</div>
+        <div id="timer-bar"><div id="progress"></div></div>
+        
+        <div id="typed-display"></div>
+        <input type="text" id="num-input" inputmode="none" autocomplete="off" autofocus>
+        
+        <div class="numpad">
+            <button class="pad-btn" onclick="typeDigit('1')">1</button>
+            <button class="pad-btn" onclick="typeDigit('2')">2</button>
+            <button class="pad-btn" onclick="typeDigit('3')">3</button>
+            <button class="pad-btn" onclick="typeDigit('4')">4</button>
+            <button class="pad-btn" onclick="typeDigit('5')">5</button>
+            <button class="pad-btn" onclick="typeDigit('6')">6</button>
+            <button class="pad-btn" onclick="typeDigit('7')">7</button>
+            <button class="pad-btn" onclick="typeDigit('8')">8</button>
+            <button class="pad-btn" onclick="typeDigit('9')">9</button>
+            <button class="pad-btn btn-del" onclick="deleteDigit()">DEL</button>
+            <button class="pad-btn" onclick="typeDigit('0')">0</button>
+            <button class="pad-btn btn-bolc" onclick="submitBolc()">BOLC</button>
+        </div>
+    </div>
+
+    <div id="game-over-ui">
+        <h1 style="color: var(--danger);">GAME OVER</h1>
+        <h2 style="margin:0;">Final Score: <span id="final-score" style="color: var(--accent); font-size: 3rem;">0</span></h2>
+        <div class="mistake-box" id="mistake-details"></div>
+        <button class="diff-btn" style="background: #444;" onclick="returnToMenu()">Main Menu</button>
+    </div>
+
+</div>
+
+<script>
+    let currentNum = 1;
+    let score = 0;
+    let timer;
+    let timeLeft;
+    let maxTime;
+    let activeDifficulty = '';
+    let currentUser = '';
+
+    const views = { menu: document.getElementById('menu-ui'), game: document.getElementById('game-ui'), over: document.getElementById('game-over-ui') };
+    const ui = { target: document.getElementById('current-target'), input: document.getElementById('num-input'), display: document.getElementById('typed-display'), progress: document.getElementById('progress'), score: document.getElementById('score'), body: document.body };
+
+    function isBolc(n) {
+        const s = n.toString();
+        let reasons = [];
+        if (n % 3 === 0) reasons.push("a multiple of 3");
+        if (n % 7 === 0) reasons.push("a multiple of 7");
+        if (s.includes('3')) reasons.push("contains a 3");
+        if (s.includes('7')) reasons.push("contains a 7");
+        return { bolc: reasons.length > 0, reasons: reasons.join(" and ") };
+    }
+
+    function startGame(difficulty) {
+        if (!document.getElementById('username').value.trim()) return alert("Please enter a username!");
+        currentUser = document.getElementById('username').value.trim();
+        activeDifficulty = difficulty;
+        currentNum = 1;
+        score = 0;
+        maxTime = difficulty === 'Easy' ? 15 : difficulty === 'Medium' ? 10 : 5;
+        document.getElementById('diff-label').innerText = difficulty;
+        ui.score.innerText = score;
+        switchView('game');
+        nextTurn();
+    }
+
+    function nextTurn() {
+        ui.input.value = '';
+        ui.display.innerText = '';
+        ui.input.focus();
+        
+        if (activeDifficulty === 'Easy') {
+            ui.target.innerHTML = currentNum.toString().replace(/([37])/g, '<span class="highlight">$1</span>');
+        } else {
+            ui.target.innerHTML = '?';
+        }
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timer);
+        timeLeft = maxTime * 100; 
+        timer = setInterval(() => {
+            timeLeft--;
+            const percent = timeLeft / (maxTime * 100);
+            ui.progress.style.width = (percent * 100) + "%";
+            
+            if (activeDifficulty === 'Hard') {
+                const r = Math.floor((1 - percent) * 200); 
+                const b = Math.floor(percent * 200);
+                ui.body.style.backgroundColor = `rgb(${r}, 20, ${b})`;
+            }
+
+            ui.progress.style.background = percent < 0.3 ? "var(--danger)" : "var(--accent)";
+            if (timeLeft <= 0) gameOver("Timeout");
+        }, 10);
+    }
+
+    // --- NEW AUTO-SUBMIT LOGIC ---
+    function handleInput() {
+        const typedStr = ui.input.value;
+        ui.display.innerText = typedStr; // Update visual display
+        if (!typedStr) return;
+
+        const targetStr = currentNum.toString();
+        const check = isBolc(currentNum);
+
+        // Instant fail if the user types a digit that doesn't match the start of the target number
+        if (!targetStr.startsWith(typedStr)) {
+            gameOver(`Typo! You pressed <b>${typedStr}</b>, but the number started with <b>${targetStr}</b>.`);
+            return;
+        }
+
+        // Auto-submit when the lengths match
+        if (typedStr.length === targetStr.length) {
+            if (check.bolc) {
+                gameOver(`You typed the number <b>${currentNum}</b>, but you should have pressed BOLC (${check.reasons}).`);
+            } else {
+                score++;
+                ui.score.innerText = score;
+                currentNum++;
+                nextTurn();
+            }
+        }
+    }
+
+    // Physical Keyboard Listener
+    ui.input.addEventListener('input', handleInput);
+    
+    // Physical Spacebar for BOLC
+    window.addEventListener('keydown', (e) => {
+        if (views.game.style.display === 'block') {
+            ui.input.focus(); // Keep focus hidden input
+            if (e.code === 'Space') {
+                e.preventDefault();
+                submitBolc();
+            }
+        }
+    });
+
+    // Numpad Button Functions
+    function typeDigit(digit) {
+        ui.input.value += digit;
+        handleInput();
+    }
+
+    function deleteDigit() {
+        ui.input.value = ui.input.value.slice(0, -1);
+        ui.display.innerText = ui.input.value;
+    }
+
+    function submitBolc() {
+        const check = isBolc(currentNum);
+        if (check.bolc) {
+            score++;
+            ui.score.innerText = score;
+            currentNum++;
+            nextTurn();
+        } else {
+            gameOver(`You pressed BOLC, but <b>${currentNum}</b> is a safe number.`);
+        }
+    }
+
+    function gameOver(mistakeText) {
+        clearInterval(timer);
+        ui.body.style.backgroundColor = "var(--bg)"; 
+        
+        if (mistakeText === "Timeout") {
+            const check = isBolc(currentNum);
+            let answer = check.bolc ? `BOLC (${check.reasons})` : currentNum;
+            mistakeText = `You ran out of time! The correct answer was <b>${answer}</b>.`;
+        }
+
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('mistake-details').innerHTML = mistakeText;
+        switchView('over');
+    }
+
+    function returnToMenu() { switchView('menu'); }
+    function switchView(viewName) {
+        views.menu.style.display = 'none';
+        views.game.style.display = 'none';
+        views.over.style.display = 'none';
+        views[viewName].style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
