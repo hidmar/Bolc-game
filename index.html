@@ -19,6 +19,11 @@
         #btn-medium { background: #fd7e14; }
         #btn-hard { background: #dc3545; }
         
+        /* Leaderboard Styling Added Back */
+        .leaderboard { margin-top: 30px; text-align: left; background: #111; padding: 15px; border-radius: 10px; }
+        .leaderboard h3 { margin: 0 0 10px 0; text-align: center; color: var(--accent); }
+        .lb-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; align-items: center; }
+        
         /* Game UI */
         .number-display { font-size: 5rem; font-weight: bold; margin: 10px 0; height: 100px; display: flex; align-items: center; justify-content: center; }
         .highlight { color: var(--danger); text-shadow: 0 0 10px rgba(255,62,62,0.5); }
@@ -28,20 +33,22 @@
         
         /* Numpad & Controls */
         #typed-display { font-size: 2rem; min-height: 40px; margin-bottom: 15px; color: var(--accent); font-weight: bold; letter-spacing: 2px;}
-        /* Hidden input to capture physical keyboard without showing mobile keyboard */
         #num-input { position: absolute; opacity: 0; pointer-events: none; } 
 
         .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 350px; margin: 0 auto; }
         .pad-btn { background: #444; color: white; border: none; padding: 15px 0; font-size: 1.5rem; font-weight: bold; border-radius: 8px; cursor: pointer; user-select: none; transition: 0.1s; }
         .pad-btn:active { transform: scale(0.95); background: #666; }
-        .btn-bolc { background: var(--danger); }
-        .btn-bolc:active { background: #ff6666; }
         .btn-del { background: #555; font-size: 1.2rem; }
+        
+        /* BIG BOLC BUTTON Styling */
+        .btn-bolc { background: var(--danger); grid-column: span 3; padding: 20px 0; font-size: 2.2rem; border-radius: 12px; letter-spacing: 2px; }
+        .btn-bolc:active { background: #ff6666; }
 
         /* Game Over UI */
         #game-over-ui { display: none; }
         .mistake-box { background: rgba(255,62,62,0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -52,13 +59,18 @@
         <input type="text" id="username" placeholder="Enter your Legend Name..." maxlength="15">
         <button class="diff-btn" id="btn-easy" onclick="startGame('Easy')">EASY (15s | Visible)</button>
         <button class="diff-btn" id="btn-medium" onclick="startGame('Medium')">MEDIUM (10s | Hidden)</button>
-        <button class="diff-btn" id="btn-hard" onclick="startGame('Hard')">HARD (5s | Hidden | Heat)</button>
+        <button class="diff-btn" id="btn-hard" onclick="startGame('Hard')">HARD (5s | Hidden)</button>
+        
+        <div class="leaderboard">
+            <h3>🏆 Farkalózok Hall of Fame</h3>
+            <div id="lb-list">Loading...</div>
+        </div>
     </div>
 
     <div id="game-ui" style="display:none;">
         <div style="display: flex; justify-content: space-between; font-weight: bold; color: #aaa;">
             <span id="diff-label">Mode</span>
-            <span>Score: <span id="score" style="color: white; font-size: 1.2rem;">0</span></span>
+            <span style="display: none;">Score: <span id="score" style="color: white; font-size: 1.2rem;">0</span></span>
         </div>
         
         <div class="number-display" id="current-target">?</div>
@@ -78,7 +90,7 @@
             <button class="pad-btn" onclick="typeDigit('8')">8</button>
             <button class="pad-btn" onclick="typeDigit('9')">9</button>
             <button class="pad-btn btn-del" onclick="deleteDigit()">DEL</button>
-            <button class="pad-btn" onclick="typeDigit('0')">0</button>
+            <button class="pad-btn" style="grid-column: span 2;" onclick="typeDigit('0')">0</button>
             <button class="pad-btn btn-bolc" onclick="submitBolc()">BOLC</button>
         </div>
     </div>
@@ -93,6 +105,9 @@
 </div>
 
 <script>
+    const supabaseUrl = 'https://cwwjfaqjcbniorzyoank.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3d2pmYXFqY2JuaW9yenlvYW5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTkzNDQsImV4cCI6MjA5MDE3NTM0NH0.TBUdNNkaK4SKj9hvBf6yK5TqVoRElKnWPcgZw_uCbPg';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
     let currentNum = 1;
     let score = 0;
     let timer;
@@ -100,7 +115,64 @@
     let maxTime;
     let activeDifficulty = '';
     let currentUser = '';
+    
+    // FETCH LEADERBOARD ON STARTUP
+    updateLeaderboardDisplay();
 
+    async function saveScore() {
+        if (score === 0) return;
+        
+        const { data, error } = await supabaseClient
+            .from('leaderboard')
+            .insert([
+                { username: currentUser, score: score, diff: activeDifficulty }
+            ]);
+
+        if (error) {
+            console.error("Error saving score:", error);
+        }
+    }
+
+    async function updateLeaderboardDisplay() {
+        const lbDiv = document.getElementById('lb-list');
+        lbDiv.innerHTML = "Loading scores...";
+
+        const { data: scores, error } = await supabaseClient
+            .from('leaderboard')
+            .select('*')
+            .order('score', { ascending: false })
+            .limit(5);
+
+        if (error) {
+            lbDiv.innerHTML = "Could not load leaderboard.";
+            console.error(error);
+            return;
+        }
+
+        if (!scores || scores.length === 0) {
+            lbDiv.innerHTML = "No scores yet.";
+            return;
+        }
+
+        // MEDAL LOGIC ADDED HERE
+        lbDiv.innerHTML = scores.map((s, i) => {
+            let rank = `${i + 1}.`;
+            if (i === 0) rank = '🥇';
+            if (i === 1) rank = '🥈';
+            if (i === 2) rank = '🥉';
+            
+            return `<div class="lb-entry">
+                <span style="font-size: 1.1rem;"><b>${rank} ${s.username}</b> <span style="font-size:0.8em; color:#888;">[${s.diff}]</span></span>
+                <span style="color:var(--accent); font-weight:bold; font-size: 1.2rem;">${s.score}</span>
+            </div>`
+        }).join('');
+    }
+
+    async function returnToMenu() {
+        await updateLeaderboardDisplay();
+        switchView('menu');
+    }
+    
     const views = { menu: document.getElementById('menu-ui'), game: document.getElementById('game-ui'), over: document.getElementById('game-over-ui') };
     const ui = { target: document.getElementById('current-target'), input: document.getElementById('num-input'), display: document.getElementById('typed-display'), progress: document.getElementById('progress'), score: document.getElementById('score'), body: document.body };
 
@@ -159,22 +231,19 @@
         }, 10);
     }
 
-    // --- NEW AUTO-SUBMIT LOGIC ---
     function handleInput() {
         const typedStr = ui.input.value;
-        ui.display.innerText = typedStr; // Update visual display
+        ui.display.innerText = typedStr; 
         if (!typedStr) return;
 
         const targetStr = currentNum.toString();
         const check = isBolc(currentNum);
 
-        // Instant fail if the user types a digit that doesn't match the start of the target number
         if (!targetStr.startsWith(typedStr)) {
             gameOver(`Typo! You pressed <b>${typedStr}</b>, but the number started with <b>${targetStr}</b>.`);
             return;
         }
 
-        // Auto-submit when the lengths match
         if (typedStr.length === targetStr.length) {
             if (check.bolc) {
                 gameOver(`You typed the number <b>${currentNum}</b>, but you should have pressed BOLC (${check.reasons}).`);
@@ -187,13 +256,11 @@
         }
     }
 
-    // Physical Keyboard Listener
     ui.input.addEventListener('input', handleInput);
     
-    // Physical Spacebar for BOLC
     window.addEventListener('keydown', (e) => {
         if (views.game.style.display === 'block') {
-            ui.input.focus(); // Keep focus hidden input
+            ui.input.focus(); 
             if (e.code === 'Space') {
                 e.preventDefault();
                 submitBolc();
@@ -201,7 +268,6 @@
         }
     });
 
-    // Numpad Button Functions
     function typeDigit(digit) {
         ui.input.value += digit;
         handleInput();
@@ -236,7 +302,10 @@
 
         document.getElementById('final-score').innerText = score;
         document.getElementById('mistake-details').innerHTML = mistakeText;
-        switchView('over');
+        
+        saveScore().then(() => {
+            switchView('over');
+        });
     }
 
     function returnToMenu() { switchView('menu'); }
